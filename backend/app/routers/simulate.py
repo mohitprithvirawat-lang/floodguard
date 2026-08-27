@@ -23,7 +23,7 @@ async def update_scenario(
     Switches scenario mode for a single station or globally.
     Immediately triggers a tick and broadcasts the new state over WebSockets.
     """
-    valid_scenarios = ["NORMAL", "BUILDING_STORM", "FLASH_FLOOD_IMMINENT"]
+    valid_scenarios = ["NORMAL", "BUILDING_STORM", "FLASH_FLOOD_IMMINENT", "CLOUDBURST"]
     if payload.scenario not in valid_scenarios:
         raise HTTPException(
             status_code=400,
@@ -58,7 +58,7 @@ async def manual_tick(
 def get_simulation_status(db: Session = Depends(get_db)):
     """Returns current active scenario distribution and station counts."""
     locations = db.query(Location).all()
-    scenario_counts = {"NORMAL": 0, "BUILDING_STORM": 0, "FLASH_FLOOD_IMMINENT": 0}
+    scenario_counts = {"NORMAL": 0, "BUILDING_STORM": 0, "FLASH_FLOOD_IMMINENT": 0, "CLOUDBURST": 0}
 
     for loc in locations:
         s = loc.scenario or "NORMAL"

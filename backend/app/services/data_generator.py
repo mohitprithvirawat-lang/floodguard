@@ -10,7 +10,8 @@ def generate_reading_for_location(
 ) -> Dict[str, Any]:
     """
     Simulates a realistic multivariate hydrological sensor reading for a given location,
-    respecting its current scenario state ('NORMAL', 'BUILDING_STORM', 'FLASH_FLOOD_IMMINENT').
+    respecting its current scenario state
+    ('NORMAL', 'BUILDING_STORM', 'FLASH_FLOOD_IMMINENT', 'CLOUDBURST').
     """
     if timestamp is None:
         timestamp = datetime.utcnow()
@@ -22,8 +23,22 @@ def generate_reading_for_location(
     # Add realistic micro-variations
     jitter = random.uniform(-0.08, 0.08)
 
-    if scenario == "FLASH_FLOOD_IMMINENT":
-        # Cloudburst / Extreme runoff conditions
+    if scenario == "CLOUDBURST":
+        # Sudden orographic micro-burst — single-tick spike to IMD cloudburst threshold (>=100 mm/h).
+        # All correlated variables set immediately so the RF model reacts in one step.
+        r1h = round(random.uniform(100.0, 130.0) + (jitter * 5.0), 1)       # Instant spike
+        r3h = round(r1h * 1.65 + random.uniform(25.0, 50.0), 1)              # Rolling 3-hr accumulation
+        r6h = round(r3h * 1.3 + random.uniform(35.0, 65.0), 1)
+        r24h = round(r6h * 1.2 + random.uniform(55.0, 110.0), 1)
+        temp = round(12.5 + random.uniform(-1.5, 1.5), 1)                    # Sharp temperature drop
+        humidity = round(min(100.0, 97.5 + random.uniform(0.0, 2.5)), 1)     # Near-saturated atmosphere
+        soil_moisture = round(min(99.9, 96.0 + random.uniform(0.0, 3.9)), 1) # Completely saturated catchment
+        change_rate = round(3.0 + random.uniform(0.0, 0.9), 2)               # Extreme surge rate >3 m/h
+        river_level = round(danger_mark + 2.0 + random.uniform(0.5, 2.5), 2) # Well above danger mark
+        forecast_3h = round(random.uniform(95.0, 135.0), 1)                  # Continued extreme forecast
+
+    elif scenario == "FLASH_FLOOD_IMMINENT":
+        # Sustained extreme runoff — ramps up progressively over multiple ticks
         step_factor = min(1.0, 0.6 + (step * 0.1))
         r1h = round(75.0 + (step_factor * 45.0) + (jitter * 20.0), 1)
         r3h = round(r1h * 1.8 + random.uniform(10.0, 30.0), 1)

@@ -137,7 +137,7 @@ export default function SimulatePage() {
             <span>Global Catchment Presets (All 10 Himalayan Basins)</span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {/* Scenario 1: Normal Safe */}
             <div className="bg-[#111827] border border-[#1f293d] hover:border-emerald-500/50 rounded-xl p-5 shadow-xl transition-all flex flex-col justify-between">
               <div>
@@ -192,7 +192,7 @@ export default function SimulatePage() {
               </button>
             </div>
 
-            {/* Scenario 3: Cloudburst Flash Flood */}
+            {/* Scenario 3: Flash Flood Imminent */}
             <div className="bg-[#111827] border border-[#1f293d] hover:border-red-500/50 rounded-xl p-5 shadow-xl transition-all flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -203,9 +203,9 @@ export default function SimulatePage() {
                     Catastrophic
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-white">Cloudburst & Flash Flood Imminent</h3>
+                <h3 className="text-base font-bold text-white">Flash Flood Imminent</h3>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Cloudburst precipitation (&gt;100 mm/h), river stages overtopping danger marks, rapid surge +2.5 m/h. AI risk surges to &gt;85% (CRITICAL).
+                  Sustained extreme runoff (&gt;75 mm/h), river stages rising progressively past danger marks, surge +2.5 m/h. AI risk surges to &gt;85% (CRITICAL).
                 </p>
               </div>
 
@@ -215,7 +215,34 @@ export default function SimulatePage() {
                 className="mt-4 w-full py-2 px-3 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/40 text-xs font-bold transition-all active:scale-95 flex items-center justify-center space-x-2 shadow-lg shadow-red-950/40"
               >
                 <AlertOctagon className="w-3.5 h-3.5" />
-                <span>Trigger Cloudburst & Flash Flood</span>
+                <span>Trigger Flash Flood Imminent</span>
+              </button>
+            </div>
+
+            {/* Scenario 4: Cloudburst — single-tick IMD-threshold spike */}
+            <div className="bg-[#111827] border border-[#1f293d] hover:border-violet-500/50 rounded-xl p-5 shadow-xl transition-all flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                    <Zap className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded font-black bg-violet-500/20 text-violet-400 border border-violet-500/30 uppercase animate-pulse">
+                    Instant Spike
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white">Cloudburst Micro-Burst</h3>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Single-tick rainfall_1h spike to 100-130 mm/h (IMD cloudburst threshold). River surge &gt;3 m/h, catchment fully saturated. AI reaches CRITICAL in one step.
+                </p>
+              </div>
+
+              <button
+                onClick={() => handleGlobalScenario('CLOUDBURST')}
+                disabled={!!actionLoading}
+                className="mt-4 w-full py-2 px-3 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 border border-violet-500/40 text-xs font-bold transition-all active:scale-95 flex items-center justify-center space-x-2 shadow-lg shadow-violet-950/40"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Trigger Cloudburst Spike</span>
               </button>
             </div>
           </div>
@@ -344,6 +371,17 @@ export default function SimulatePage() {
                               currentScenario === 'FLASH_FLOOD_IMMINENT'
                                 ? 'bg-red-600 text-white font-black shadow-sm animate-pulse'
                                 : 'bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/50'
+                            }`}
+                          >
+                            Flash Flood
+                          </button>
+
+                          <button
+                            onClick={() => handleStationScenario(loc.id, 'CLOUDBURST', loc.name)}
+                            className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                              currentScenario === 'CLOUDBURST'
+                                ? 'bg-violet-600 text-white font-black shadow-sm animate-pulse'
+                                : 'bg-violet-950/40 text-violet-400 hover:bg-violet-900/60 border border-violet-800/50'
                             }`}
                           >
                             Cloudburst
