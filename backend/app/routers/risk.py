@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import Location, SensorReading, RiskPrediction
 from app.schemas import RiskPredictionOut, SensorReadingBase
 from app.ml.model import flood_model
+from app.ml.slope_stability import calculate_slope_stability, combine_hydrological_and_geotechnical
 
 router = APIRouter(prefix="/api", tags=["Risk Prediction"])
 
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/api", tags=["Risk Prediction"])
 def get_risk_map(db: Session = Depends(get_db)):
     """
     Returns batch GeoJSON/Map data with current risk status, color codes,
+    hydrological risk, physics-based geotechnical slope stability (FoS),
     and key sensor metrics for all monitored Himalayan stations.
     """
     locations = db.query(Location).all()
@@ -31,6 +33,18 @@ def get_risk_map(db: Session = Depends(get_db)):
         risk_level = latest_pred.risk_level if latest_pred else "NORMAL"
         warning_window = latest_pred.warning_window_minutes if latest_pred else 360
         contributions = json.loads(latest_pred.contributions_json) if (latest_pred and latest_pred.contributions_json) else {}
+
+        # Physics-based slope stability evaluation
+        soil_moisture_val = latest_reading.soil_moisture if latest_reading else 30.0
+        geotech = calculate_slope_stability(
+            slope_deg=loc.slope,
+            soil_moisture_pct=soil_moisture_val
+        )
+        hybrid = combine_hydrological_and_geotechnical(
+            hydrological_score=risk_score,
+            hydrological_level=risk_level,
+            geotech_result=geotech
+        )
 
         # Color mapping code
         color_map = {
@@ -52,17 +66,25 @@ def get_risk_map(db: Session = Depends(get_db)):
             "slope": loc.slope,
             "danger_river_level": loc.danger_river_level,
             "scenario": loc.scenario,
-            "risk_score": risk_score,
-            "risk_level": risk_level,
+            "risk_score": hybrid["combined_risk_score"],
+            "risk_level": hybrid["combined_risk_level"],
             "warning_window_minutes": warning_window,
-            "color": color_map.get(risk_level, "#22c55e"),
+            "color": color_map.get(hybrid["combined_risk_level"], "#22c55e"),
             "rainfall_1h": latest_reading.rainfall_1h if latest_reading else 0.0,
             "rainfall_3h": latest_reading.rainfall_3h if latest_reading else 0.0,
             "river_level": latest_reading.river_level if latest_reading else 2.5,
             "river_level_change_rate": latest_reading.river_level_change_rate if latest_reading else 0.0,
-            "soil_moisture": latest_reading.soil_moisture if latest_reading else 30.0,
+            "soil_moisture": soil_moisture_val,
             "forecast_rainfall_next_3h": latest_reading.forecast_rainfall_next_3h if latest_reading else 0.0,
-            "top_risk_driver": list(contributions.keys())[0] if contributions else "rainfall_3h"
+            "top_risk_driver": list(contributions.keys())[0] if contributions else "rainfall_3h",
+            "hydrological_risk": hybrid["hydrological_risk"],
+            "geotechnical_risk": hybrid["geotechnical_risk"],
+            "hybrid_risk": {
+                "combined_risk_score": hybrid["combined_risk_score"],
+                "combined_risk_level": hybrid["combined_risk_level"],
+                "physics_override_applied": hybrid["physics_override_applied"],
+                "fusion_rationale": hybrid["fusion_rationale"]
+            }
         })
 
     return {
@@ -120,12 +142,19 @@ def predict_location_risk(
         "risk_score": result["risk_score"],
         "risk_level": result["risk_level"],
         "warning_window_minutes": result["warning_window_minutes"],
-        "feature_contributions": result["feature_contributions"]
+        "feature_contributions": result["feature_contributions"],
+        "hydrological_risk": result.get("hydrological_risk"),
+        "geotechnical_risk": result.get("geotechnical_risk"),
+        "hybrid_risk": result.get("hybrid_risk")
     }
 
 @router.get("/risk/{location_id}", response_model=RiskPredictionOut)
 def get_current_risk(location_id: int, db: Session = Depends(get_db)):
-    """Returns the latest stored AI risk prediction with explainability breakdown."""
+    """Returns the latest stored AI risk prediction with explainability breakdown and slope stability FoS."""
+    loc = db.query(Location).filter(Location.id == location_id).first()
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found")
+
     pred = db.query(RiskPrediction).filter(
         RiskPrediction.location_id == location_id
     ).order_by(RiskPrediction.timestamp.desc()).first()
@@ -133,12 +162,32 @@ def get_current_risk(location_id: int, db: Session = Depends(get_db)):
     if not pred:
         raise HTTPException(status_code=404, detail="No prediction found for this location")
 
+    latest_reading = db.query(SensorReading).filter(
+        SensorReading.location_id == location_id
+    ).order_by(SensorReading.timestamp.desc()).first()
+
+    soil_moisture = latest_reading.soil_moisture if latest_reading else 30.0
+    geotech = calculate_slope_stability(slope_deg=loc.slope, soil_moisture_pct=soil_moisture)
+    hybrid = combine_hydrological_and_geotechnical(
+        hydrological_score=pred.risk_score,
+        hydrological_level=pred.risk_level,
+        geotech_result=geotech
+    )
+
     return {
         "id": pred.id,
         "location_id": pred.location_id,
         "timestamp": pred.timestamp,
-        "risk_score": pred.risk_score,
-        "risk_level": pred.risk_level,
+        "risk_score": hybrid["combined_risk_score"],
+        "risk_level": hybrid["combined_risk_level"],
         "warning_window_minutes": pred.warning_window_minutes,
-        "feature_contributions": json.loads(pred.contributions_json or "{}")
+        "feature_contributions": json.loads(pred.contributions_json or "{}"),
+        "hydrological_risk": hybrid["hydrological_risk"],
+        "geotechnical_risk": hybrid["geotechnical_risk"],
+        "hybrid_risk": {
+            "combined_risk_score": hybrid["combined_risk_score"],
+            "combined_risk_level": hybrid["combined_risk_level"],
+            "physics_override_applied": hybrid["physics_override_applied"],
+            "fusion_rationale": hybrid["fusion_rationale"]
+        }
     }

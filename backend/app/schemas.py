@@ -27,6 +27,28 @@ class SensorReadingOut(SensorReadingBase):
     class Config:
         from_attributes = True
 
+class GeotechnicalRiskOut(BaseModel):
+    factor_of_safety: float
+    stability_status: str  # STABLE, MODERATE, UNSTABLE, FAILURE_IMMINENT
+    geotechnical_risk_score: float
+    geotechnical_risk_level: str
+    weight: float = 0.35
+    source: Optional[str] = "Infinite-Slope Factor of Safety (FoS) Physics Engine"
+    parameters: Optional[Dict[str, Any]] = None
+    stress_mechanics: Optional[Dict[str, Any]] = None
+
+class HydrologicalRiskOut(BaseModel):
+    score: float
+    level: str
+    weight: float = 0.65
+    source: Optional[str] = "Random Forest Hydrology Regressor"
+
+class HybridRiskOut(BaseModel):
+    combined_risk_score: float
+    combined_risk_level: str
+    physics_override_applied: bool = False
+    fusion_rationale: Optional[str] = None
+
 class RiskPredictionOut(BaseModel):
     id: Optional[int] = None
     location_id: int
@@ -35,6 +57,9 @@ class RiskPredictionOut(BaseModel):
     risk_level: str  # NORMAL, WATCH, WARNING, CRITICAL
     warning_window_minutes: int
     feature_contributions: Dict[str, float]
+    hydrological_risk: Optional[HydrologicalRiskOut] = None
+    geotechnical_risk: Optional[GeotechnicalRiskOut] = None
+    hybrid_risk: Optional[HybridRiskOut] = None
 
     class Config:
         from_attributes = True
@@ -94,6 +119,9 @@ class LocationDetailOut(LocationOut):
     infrastructure: List[InfrastructureOut] = []
     readings_history: List[SensorReadingOut] = []
     recent_alerts: List[AlertOut] = []
+    geotechnical_risk: Optional[GeotechnicalRiskOut] = None
+    hydrological_risk: Optional[HydrologicalRiskOut] = None
+    hybrid_risk: Optional[HybridRiskOut] = None
 
 class ScenarioUpdateRequest(BaseModel):
     scenario: str = Field(..., description="NORMAL, BUILDING_STORM, FLASH_FLOOD_IMMINENT")

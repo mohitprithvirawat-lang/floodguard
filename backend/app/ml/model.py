@@ -14,6 +14,7 @@ from sklearn.metrics import (
     r2_score,
     mean_absolute_error
 )
+from app.ml.slope_stability import calculate_slope_stability, combine_hydrological_and_geotechnical
 
 logger = logging.getLogger("floodguard.ml")
 
@@ -348,12 +349,36 @@ class FloodRiskModel:
 
         sorted_contributions = dict(sorted(contributions.items(), key=lambda item: item[1], reverse=True))
 
+        # --- Physics-based Geotechnical Slope Stability (Infinite-Slope FoS) ---
+        slope_val = float(features.get("slope", 20.0))
+        moisture_val = float(features.get("soil_moisture", 35.0))
+        elevation_val = float(features.get("elevation", 1500.0))
+        geotech_res = calculate_slope_stability(
+            slope_deg=slope_val,
+            soil_moisture_pct=moisture_val
+        )
+
+        # --- Physics-Guided + ML Hybrid Fusion ---
+        hybrid_res = combine_hydrological_and_geotechnical(
+            hydrological_score=predicted_score,
+            hydrological_level=risk_level,
+            geotech_result=geotech_res
+        )
+
         return {
-            "risk_score": predicted_score,
-            "risk_level": risk_level,
+            "risk_score": hybrid_res["combined_risk_score"],
+            "risk_level": hybrid_res["combined_risk_level"],
             "warning_window_minutes": predicted_window,
             "confidence_score": confidence_score,
-            "feature_contributions": sorted_contributions
+            "feature_contributions": sorted_contributions,
+            "hydrological_risk": hybrid_res["hydrological_risk"],
+            "geotechnical_risk": hybrid_res["geotechnical_risk"],
+            "hybrid_risk": {
+                "combined_risk_score": hybrid_res["combined_risk_score"],
+                "combined_risk_level": hybrid_res["combined_risk_level"],
+                "physics_override_applied": hybrid_res["physics_override_applied"],
+                "fusion_rationale": hybrid_res["fusion_rationale"]
+            }
         }
 
     def predict_future_trajectory(

@@ -17,6 +17,45 @@ export interface SensorReading {
   forecast_rainfall_next_3h: number;
 }
 
+export interface GeotechnicalRisk {
+  factor_of_safety: number;
+  stability_status: 'STABLE' | 'MODERATE' | 'UNSTABLE' | 'FAILURE_IMMINENT' | string;
+  geotechnical_risk_score: number;
+  geotechnical_risk_level: RiskLevel | string;
+  weight: number;
+  source?: string;
+  parameters?: {
+    slope_deg: number;
+    soil_moisture_pct: number;
+    saturation_ratio_m: number;
+    cohesion_kpa: number;
+    friction_angle_deg: number;
+    soil_unit_weight_kn_m3: number;
+    water_unit_weight_kn_m3: number;
+    failure_depth_z_m: number;
+  };
+  stress_mechanics?: {
+    resisting_stress_kpa: number;
+    driving_stress_kpa: number;
+    cohesion_contribution_kpa: number;
+    frictional_contribution_kpa: number;
+  };
+}
+
+export interface HydrologicalRisk {
+  score: number;
+  level: RiskLevel | string;
+  weight: number;
+  source?: string;
+}
+
+export interface HybridRisk {
+  combined_risk_score: number;
+  combined_risk_level: RiskLevel | string;
+  physics_override_applied?: boolean;
+  fusion_rationale?: string;
+}
+
 export interface RiskPrediction {
   id?: number;
   location_id: number;
@@ -25,6 +64,9 @@ export interface RiskPrediction {
   risk_level: RiskLevel;
   warning_window_minutes: number;
   feature_contributions: Record<string, number>;
+  hydrological_risk?: HydrologicalRisk;
+  geotechnical_risk?: GeotechnicalRisk;
+  hybrid_risk?: HybridRisk;
 }
 
 export interface Infrastructure {
@@ -77,7 +119,7 @@ export interface Location {
   elevation: number;
   river_name: string;
   danger_river_level: number;
-  scenario: 'NORMAL' | 'BUILDING_STORM' | 'FLASH_FLOOD_IMMINENT';
+  scenario: 'NORMAL' | 'BUILDING_STORM' | 'FLASH_FLOOD_IMMINENT' | 'CLOUDBURST' | string;
   current_reading?: SensorReading | null;
   latest_prediction?: RiskPrediction | null;
 }
@@ -86,6 +128,9 @@ export interface LocationDetail extends Location {
   infrastructure: Infrastructure[];
   readings_history: SensorReading[];
   recent_alerts: Alert[];
+  hydrological_risk?: HydrologicalRisk;
+  geotechnical_risk?: GeotechnicalRisk;
+  hybrid_risk?: HybridRisk;
 }
 
 export interface RiskStationMapItem {
@@ -111,6 +156,9 @@ export interface RiskStationMapItem {
   soil_moisture: number;
   forecast_rainfall_next_3h: number;
   top_risk_driver: string;
+  hydrological_risk?: HydrologicalRisk;
+  geotechnical_risk?: GeotechnicalRisk;
+  hybrid_risk?: HybridRisk;
 }
 
 export interface SimulationStatus {

@@ -141,7 +141,10 @@ def run_simulation_tick(db: Session) -> Dict[str, Any]:
                 "risk_score": prediction.risk_score,
                 "risk_level": prediction.risk_level,
                 "warning_window_minutes": prediction.warning_window_minutes,
-                "feature_contributions": pred_result["feature_contributions"]
+                "feature_contributions": pred_result["feature_contributions"],
+                "hydrological_risk": pred_result.get("hydrological_risk"),
+                "geotechnical_risk": pred_result.get("geotechnical_risk"),
+                "hybrid_risk": pred_result.get("hybrid_risk")
             }
         })
 

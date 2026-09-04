@@ -260,7 +260,14 @@ export default function LocationDetailPage() {
             />
           </div>
           <div className="lg:col-span-8 flex flex-col">
-            <FeatureImportanceChart contributions={contributions} />
+            <FeatureImportanceChart
+              contributions={contributions}
+              geotechnicalRisk={location.latest_prediction?.geotechnical_risk || location.geotechnical_risk}
+              hydrologicalRisk={location.latest_prediction?.hydrological_risk || location.hydrological_risk}
+              hybridRisk={location.latest_prediction?.hybrid_risk || location.hybrid_risk}
+              slopeAngle={location.slope}
+              soilMoisture={currentReading?.soil_moisture}
+            />
           </div>
         </div>
 

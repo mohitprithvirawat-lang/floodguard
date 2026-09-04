@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert, HistoricalEvent
 from app.schemas import LocationOut, LocationDetailOut, SensorReadingOut, RiskPredictionOut, HistoricalEventOut
 from app.services.impact_service import assess_infrastructure_impact
+from app.ml.slope_stability import calculate_slope_stability, combine_hydrological_and_geotechnical
 
 router = APIRouter(prefix="/api/locations", tags=["Locations"])
 
@@ -25,14 +26,29 @@ def get_all_locations(db: Session = Depends(get_db)):
 
         pred_dict = None
         if latest_pred:
+            moisture = latest_reading.soil_moisture if latest_reading else 30.0
+            geotech = calculate_slope_stability(slope_deg=loc.slope, soil_moisture_pct=moisture)
+            hybrid = combine_hydrological_and_geotechnical(
+                hydrological_score=latest_pred.risk_score,
+                hydrological_level=latest_pred.risk_level,
+                geotech_result=geotech
+            )
             pred_dict = {
                 "id": latest_pred.id,
                 "location_id": latest_pred.location_id,
                 "timestamp": latest_pred.timestamp,
-                "risk_score": latest_pred.risk_score,
-                "risk_level": latest_pred.risk_level,
+                "risk_score": hybrid["combined_risk_score"],
+                "risk_level": hybrid["combined_risk_level"],
                 "warning_window_minutes": latest_pred.warning_window_minutes,
-                "feature_contributions": json.loads(latest_pred.contributions_json or "{}")
+                "feature_contributions": json.loads(latest_pred.contributions_json or "{}"),
+                "hydrological_risk": hybrid["hydrological_risk"],
+                "geotechnical_risk": hybrid["geotechnical_risk"],
+                "hybrid_risk": {
+                    "combined_risk_score": hybrid["combined_risk_score"],
+                    "combined_risk_level": hybrid["combined_risk_level"],
+                    "physics_override_applied": hybrid["physics_override_applied"],
+                    "fusion_rationale": hybrid["fusion_rationale"]
+                }
             }
 
         out.append({
@@ -67,18 +83,35 @@ def get_location_details(location_id: int, db: Session = Depends(get_db)):
         RiskPrediction.location_id == loc.id
     ).order_by(RiskPrediction.timestamp.desc()).first()
 
+    soil_moisture = latest_reading.soil_moisture if latest_reading else 30.0
+    geotech = calculate_slope_stability(slope_deg=loc.slope, soil_moisture_pct=soil_moisture)
+
     pred_dict = None
     curr_level = "NORMAL"
+    hybrid = None
     if latest_pred:
-        curr_level = latest_pred.risk_level
+        hybrid = combine_hydrological_and_geotechnical(
+            hydrological_score=latest_pred.risk_score,
+            hydrological_level=latest_pred.risk_level,
+            geotech_result=geotech
+        )
+        curr_level = hybrid["combined_risk_level"]
         pred_dict = {
             "id": latest_pred.id,
             "location_id": latest_pred.location_id,
             "timestamp": latest_pred.timestamp,
-            "risk_score": latest_pred.risk_score,
-            "risk_level": latest_pred.risk_level,
+            "risk_score": hybrid["combined_risk_score"],
+            "risk_level": hybrid["combined_risk_level"],
             "warning_window_minutes": latest_pred.warning_window_minutes,
-            "feature_contributions": json.loads(latest_pred.contributions_json or "{}")
+            "feature_contributions": json.loads(latest_pred.contributions_json or "{}"),
+            "hydrological_risk": hybrid["hydrological_risk"],
+            "geotechnical_risk": hybrid["geotechnical_risk"],
+            "hybrid_risk": {
+                "combined_risk_score": hybrid["combined_risk_score"],
+                "combined_risk_level": hybrid["combined_risk_level"],
+                "physics_override_applied": hybrid["physics_override_applied"],
+                "fusion_rationale": hybrid["fusion_rationale"]
+            }
         }
 
     # Fetch infrastructure & evaluate impact
@@ -125,7 +158,10 @@ def get_location_details(location_id: int, db: Session = Depends(get_db)):
         "latest_prediction": pred_dict,
         "infrastructure": assessed_infra,
         "readings_history": readings,
-        "recent_alerts": alerts_out
+        "recent_alerts": alerts_out,
+        "geotechnical_risk": hybrid["geotechnical_risk"] if hybrid else geotech,
+        "hydrological_risk": hybrid["hydrological_risk"] if hybrid else None,
+        "hybrid_risk": hybrid["hybrid_risk"] if hybrid else None
     }
 
 @router.get("/{location_id}/history")
