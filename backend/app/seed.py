@@ -348,6 +348,57 @@ def seed_sensor_devices_if_needed(db):
     db.commit()
     logger.info(f"Successfully seeded {seeded_count} IoT sensor devices.")
 
+def migrate_infrastructure_schema_and_terrain_data(db):
+    """Ensures elevation and slope columns exist in SQLite and populates local topographic values."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect("floodguard.db")
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(infrastructure)")
+        cols = [r[1] for r in cursor.fetchall()]
+        if "elevation" not in cols:
+            cursor.execute("ALTER TABLE infrastructure ADD COLUMN elevation FLOAT")
+        if "slope" not in cols:
+            cursor.execute("ALTER TABLE infrastructure ADD COLUMN slope FLOAT")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Infrastructure column check: {e}")
+
+    # Populate elevation and slope if missing
+    infras = db.query(Infrastructure).all()
+    updated = 0
+    for inf in infras:
+        if inf.elevation is None or inf.slope is None:
+            loc = db.query(Location).filter(Location.id == inf.location_id).first()
+            if not loc:
+                continue
+            itype = (inf.type or "").lower()
+            name_l = (inf.name or "").lower()
+            if "upper" in name_l or "high" in name_l:
+                inf.elevation = round(loc.elevation + 65.0, 1)
+                inf.slope = round(min(48.0, loc.slope + 3.5), 1)
+            elif "bridge" in itype or "suspension" in name_l:
+                inf.elevation = round(loc.elevation - 35.0, 1)
+                inf.slope = round(max(8.0, loc.slope - 24.0), 1)
+            elif "hospital" in itype:
+                inf.elevation = round(loc.elevation + 18.0, 1)
+                inf.slope = round(max(10.0, loc.slope - 18.0), 1)
+            elif "school" in itype:
+                inf.elevation = round(loc.elevation + 25.0, 1)
+                inf.slope = round(max(12.0, loc.slope - 15.0), 1)
+            elif "road" in itype or "highway" in name_l:
+                inf.elevation = round(loc.elevation - 15.0, 1)
+                inf.slope = round(max(15.0, loc.slope - 12.0), 1)
+            else:
+                inf.elevation = round(loc.elevation - 12.0, 1)
+                inf.slope = round(max(14.0, loc.slope - 10.0), 1)
+            updated += 1
+
+    if updated > 0:
+        db.commit()
+        logger.info(f"Populated micro-topographic elevation and slope for {updated} infrastructure assets.")
+
 def seed_database():
     """Initializes tables and seeds locations, infrastructure, historical telemetry & ML predictions."""
     logger.info("Creating database tables...")
@@ -361,6 +412,7 @@ def seed_database():
             logger.info(f"Database already contains {existing_count} locations.")
             seed_historical_events_if_needed(db)
             seed_sensor_devices_if_needed(db)
+            migrate_infrastructure_schema_and_terrain_data(db)
             return
 
         # Train ML model first

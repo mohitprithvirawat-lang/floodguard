@@ -87,6 +87,15 @@ export default function LocationDetailPage() {
             } : prev.device
           };
         });
+
+        const cr = updated.current_reading;
+        if (cr) {
+          setHistoryData((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && last.timestamp === cr.timestamp) return prev;
+            return [...prev.slice(-23), cr];
+          });
+        }
       }
     }
   }, [telemetry, locationId]);

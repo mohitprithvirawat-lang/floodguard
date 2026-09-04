@@ -73,6 +73,12 @@ class InfrastructureOut(BaseModel):
     lng: float
     population_estimate: Optional[int] = None
     distance_km: float
+    elevation: Optional[float] = None
+    slope: Optional[float] = None
+    downscaled_risk_score: float = 20.0
+    downscaled_risk_level: str = "NORMAL"
+    downscaled_delta: Optional[float] = 0.0
+    downscaling_factors: Optional[Dict[str, float]] = None
     vulnerability_score: float
     evacuation_priority: int
     recommended_action: str
@@ -221,8 +227,14 @@ class DataSourceInfo(BaseModel):
     update_frequency: str
     accuracy_resolution: str
     status: str
-    latency_seconds: int
+    latency_seconds: float
     description: str
+    is_live_integrated: Optional[bool] = False
+    last_call_timestamp: Optional[str] = None
+    total_calls_count: Optional[int] = None
+    last_latency_ms: Optional[float] = None
+    api_endpoint: Optional[str] = None
+    sample_station_forecasts: Optional[Dict[str, str]] = None
 
 class FutureForecastStep(BaseModel):
     step_hours: int

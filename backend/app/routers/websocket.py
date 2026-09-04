@@ -66,6 +66,18 @@ ws_manager = ConnectionManager()
 async def websocket_live_endpoint(websocket: WebSocket):
     await ws_manager.connect_live(websocket)
     try:
+        from app.database import SessionLocal
+        from app.services.simulation import run_simulation_tick
+        db = SessionLocal()
+        try:
+            initial_payload = run_simulation_tick(db)
+            await websocket.send_text(json.dumps(initial_payload))
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Failed to push initial live telemetry: {e}")
+
+    try:
         while True:
             # Keep listening for incoming client pings or commands
             data = await websocket.receive_text()

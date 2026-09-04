@@ -65,7 +65,7 @@ def generate_reading_for_location(
         river_level = round((danger_mark * 0.72) + (step_factor * (danger_mark * 0.24)) + random.uniform(-0.15, 0.15), 2)
         forecast_3h = round(45.0 + (step_factor * 30.0) + random.uniform(-5.0, 8.0), 1)
 
-    else:  # NORMAL
+    else:  # NORMAL or WATCH baseline
         r1h = round(max(0.0, random.uniform(0.2, 4.5) + (jitter * 1.0)), 1)
         r3h = round(r1h + random.uniform(1.0, 5.5), 1)
         r6h = round(r3h + random.uniform(2.0, 9.0), 1)
@@ -75,7 +75,15 @@ def generate_reading_for_location(
         soil_moisture = round(random.uniform(28.0, 46.0), 1)
         change_rate = round(random.uniform(-0.06, 0.08), 2)
         river_level = round((danger_mark * 0.35) + random.uniform(-0.25, 0.25), 2)
-        forecast_3h = round(random.uniform(1.0, 8.0), 1)
+
+        # Pull real prospective precipitation forecast from Open-Meteo's live NWP API
+        from app.services.weather_service import open_meteo_service
+        real_forecast = open_meteo_service.get_cached_forecast_3h(
+            location_id=location.id,
+            lat=location.lat,
+            lng=location.lng
+        )
+        forecast_3h = round(real_forecast, 1)
 
     return {
         "location_id": location.id,

@@ -4,7 +4,15 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { LiveTelemetryPayload, Alert } from './types';
 import { fetchRiskMap } from './api';
 
-const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+const getWsBase = () => {
+  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname || 'localhost';
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${host}:8000`;
+  }
+  return 'ws://localhost:8000';
+};
 
 export function useRealtimeStream() {
   const [telemetry, setTelemetry] = useState<LiveTelemetryPayload | null>(null);
@@ -16,7 +24,8 @@ export function useRealtimeStream() {
 
   const connect = useCallback(() => {
     try {
-      const ws = new WebSocket(`${WS_BASE}/ws/live`);
+      const wsUrl = `${getWsBase()}/ws/live`;
+      const ws = new WebSocket(wsUrl);
       socketRef.current = ws;
 
       ws.onopen = () => {

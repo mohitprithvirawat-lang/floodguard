@@ -463,9 +463,11 @@ class FloodRiskModel:
             })
 
         return forecast_results
-
     def get_data_sources_info(self) -> List[Dict[str, Any]]:
         """Returns metadata regarding the primary sensor & meteorological data sources."""
+        from app.services.weather_service import open_meteo_service
+        open_meteo_entry = open_meteo_service.get_provenance_info()
+
         return [
             {
                 "source_id": "IMD_DWR_AWS",
@@ -475,7 +477,7 @@ class FloodRiskModel:
                 "update_frequency": "Every 15 Minutes",
                 "accuracy_resolution": "0.1 mm rain / 1 km² Spatial Grid",
                 "status": "OPERATIONAL",
-                "latency_seconds": 12,
+                "latency_seconds": 12.0,
                 "description": "High-resolution X-band and C-band dual-polarization Himalayan radar network calibrated for convective cloudburst detection."
             },
             {
@@ -486,7 +488,7 @@ class FloodRiskModel:
                 "update_frequency": "Every 5 Minutes (Real-Time)",
                 "accuracy_resolution": "±0.01 m Stage Precision",
                 "status": "OPERATIONAL",
-                "latency_seconds": 8,
+                "latency_seconds": 8.0,
                 "description": "Telemetry hydrological monitoring stations positioned across Alaknanda, Mandakini, Bhagirathi, and Beas river basins."
             },
             {
@@ -497,20 +499,10 @@ class FloodRiskModel:
                 "update_frequency": "Daily Dynamic Assimilation",
                 "accuracy_resolution": "30m Digital Elevation Model / 0.05° Grid Saturation",
                 "status": "OPERATIONAL",
-                "latency_seconds": 45,
+                "latency_seconds": 45.0,
                 "description": "Satellite-derived topographic run-off coefficient and microwave radiometer root-zone soil saturation profiling."
             },
-            {
-                "source_id": "OPEN_METEO_GFS",
-                "name": "Numerical Weather Prediction (NWP) 3-Hour Prospective Rain Forecast",
-                "agency": "Open-Meteo High-Resolution Ensemble / NOAA GFS",
-                "telemetry_type": "Forecast Rainfall Next 3h (mm), Convective Available Potential Energy (CAPE)",
-                "update_frequency": "Hourly NWP Model Cycle",
-                "accuracy_resolution": "2 km Meso-Scale Model Resolution",
-                "status": "OPERATIONAL",
-                "latency_seconds": 18,
-                "description": "High-altitude predictive precipitation model capturing localized convective cloud formation before radar reflectivity triggers."
-            }
+            open_meteo_entry
         ]
 
 # Global Singleton Model Instance

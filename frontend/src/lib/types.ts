@@ -78,6 +78,18 @@ export interface Infrastructure {
   lng: number;
   population_estimate?: number | null;
   distance_km: number;
+  elevation?: number | null;
+  slope?: number | null;
+  downscaled_risk_score?: number;
+  downscaled_risk_level?: RiskLevel | string;
+  downscaled_delta?: number;
+  downscaling_factors?: {
+    distance_factor: number;
+    elevation_factor: number;
+    slope_factor: number;
+    structural_factor: number;
+    surge_factor: number;
+  } | null;
   vulnerability_score: number;
   evacuation_priority: number;
   recommended_action: string;
@@ -283,6 +295,12 @@ export interface DataSourceInfo {
   status: string;
   latency_seconds: number;
   description: string;
+  is_live_integrated?: boolean;
+  last_call_timestamp?: string | null;
+  total_calls_count?: number | null;
+  last_latency_ms?: number | null;
+  api_endpoint?: string | null;
+  sample_station_forecasts?: Record<string, string> | null;
 }
 
 export interface FutureForecastStep {

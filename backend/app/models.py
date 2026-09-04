@@ -74,6 +74,8 @@ class Infrastructure(Base):
     lng = Column(Float, nullable=False)
     population_estimate = Column(Integer, nullable=True)
     distance_km = Column(Float, nullable=True)
+    elevation = Column(Float, nullable=True)  # in meters MSL
+    slope = Column(Float, nullable=True)  # in degrees
 
     location = relationship("Location", back_populates="infrastructure")
 

@@ -350,21 +350,52 @@ export default function ModelAccuracyPage() {
             {dataSources.map((src) => (
               <div
                 key={src.source_id}
-                className="bg-[#111827] border border-[#1f293d] hover:border-blue-500/40 rounded-xl p-4 shadow-xl transition-all space-y-3"
+                className={`bg-[#111827] border ${
+                  src.is_live_integrated
+                    ? 'border-emerald-500/40 hover:border-emerald-400/60 ring-1 ring-emerald-500/20'
+                    : 'border-[#1f293d] hover:border-blue-500/40'
+                } rounded-xl p-4 shadow-xl transition-all space-y-3`}
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h4 className="font-bold text-sm text-white">{src.name}</h4>
+                    <h4 className="font-bold text-sm text-white flex items-center space-x-2">
+                      <span>{src.name}</span>
+                    </h4>
                     <p className="text-xs font-semibold text-blue-400">{src.agency}</p>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">
-                    {src.status} ({src.latency_seconds}s latency)
-                  </span>
+                  {src.is_live_integrated ? (
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase">
+                        LIVE API ({src.last_latency_ms ? `${src.last_latency_ms.toFixed(0)}ms` : `${src.latency_seconds}s`})
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded font-black bg-slate-800 text-slate-300 border border-slate-700 uppercase shrink-0">
+                      {src.status} ({src.latency_seconds}s latency)
+                    </span>
+                  )}
                 </div>
 
                 <p className="text-xs text-slate-300 leading-relaxed">
                   {src.description}
                 </p>
+
+                {src.is_live_integrated && (
+                  <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-[11px] text-emerald-300 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center space-x-1.5">
+                      <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                      <span className="font-semibold">Live NWP Sync Active</span>
+                      <span className="text-emerald-400/80">({src.total_calls_count || 1} live queries served)</span>
+                    </div>
+                    <div className="font-mono text-[10px] text-emerald-400/90">
+                      api.open-meteo.com
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-[#090e1a] p-2.5 rounded-lg border border-slate-800 text-[11px] grid grid-cols-2 gap-2 text-slate-400">
                   <div>

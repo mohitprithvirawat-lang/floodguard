@@ -116,7 +116,15 @@ def get_location_details(location_id: int, db: Session = Depends(get_db)):
 
     # Fetch infrastructure & evaluate impact
     raw_infra = db.query(Infrastructure).filter(Infrastructure.location_id == loc.id).all()
-    assessed_infra = assess_infrastructure_impact(loc, raw_infra, current_risk_level=curr_level)
+    station_score = hybrid["combined_risk_score"] if hybrid else (latest_pred.risk_score if latest_pred else 20.0)
+    curr_river = latest_reading.river_level if latest_reading else None
+    assessed_infra = assess_infrastructure_impact(
+        location=loc,
+        infrastructure_list=raw_infra,
+        current_risk_level=curr_level,
+        station_risk_score=station_score,
+        river_level=curr_river
+    )
 
     # 24 latest readings history
     readings = db.query(SensorReading).filter(

@@ -22,7 +22,7 @@ async def background_simulation_loop():
     while True:
         try:
             await asyncio.sleep(settings.SIMULATION_INTERVAL_SECONDS)
-            if sim_state.is_running and ws_manager.active_connections:
+            if sim_state.is_running:
                 db = SessionLocal()
                 try:
                     tick_payload = run_simulation_tick(db)
@@ -38,19 +38,62 @@ async def background_simulation_loop():
             logger.error(f"Error in background simulation loop: {e}", exc_info=True)
             await asyncio.sleep(5)
 
+async def background_weather_refresh_loop():
+    """Periodically fetches real precipitation forecasts from Open-Meteo API every 15 minutes."""
+    logger.info("Starting background Open-Meteo weather sync loop (15-min cadence)...")
+    while True:
+        try:
+            await asyncio.sleep(900)  # 15 minutes
+            db = SessionLocal()
+            try:
+                from app.models import Location
+                from app.services.weather_service import open_meteo_service
+                locations = db.query(Location).all()
+                if locations:
+                    open_meteo_service.refresh_all_locations(locations)
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            logger.info("Background Open-Meteo weather loop cancelled.")
+            break
+        except Exception as e:
+            logger.error(f"Error in background weather refresh loop: {e}", exc_info=True)
+            await asyncio.sleep(60)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Seed database & train ML model
     logger.info("Initializing FloodGuard Decision Support System...")
     seed_database()
 
-    # Start background real-time ticker
+    # Start background tasks
+    async def initial_weather_sync():
+        try:
+            from app.models import Location
+            from app.services.weather_service import open_meteo_service
+            db = SessionLocal()
+            try:
+                locations = db.query(Location).all()
+                if locations:
+                    logger.info("Triggering initial live Open-Meteo forecast sync for monitoring stations in background...")
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, open_meteo_service.refresh_all_locations, locations)
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning(f"Initial Open-Meteo sync deferred: {e}")
+
+    init_weather_task = asyncio.create_task(initial_weather_sync())
     ticker_task = asyncio.create_task(background_simulation_loop())
+    weather_task = asyncio.create_task(background_weather_refresh_loop())
     yield
     # Shutdown
+    init_weather_task.cancel()
     ticker_task.cancel()
+    weather_task.cancel()
     try:
         await ticker_task
+        await weather_task
     except asyncio.CancelledError:
         pass
     logger.info("FloodGuard backend shutdown complete.")
