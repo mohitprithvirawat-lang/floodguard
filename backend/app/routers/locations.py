@@ -3,8 +3,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert
-from app.schemas import LocationOut, LocationDetailOut, SensorReadingOut, RiskPredictionOut
+from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert, HistoricalEvent
+from app.schemas import LocationOut, LocationDetailOut, SensorReadingOut, RiskPredictionOut, HistoricalEventOut
 from app.services.impact_service import assess_infrastructure_impact
 
 router = APIRouter(prefix="/api/locations", tags=["Locations"])
@@ -171,3 +171,16 @@ def get_location_history(location_id: int, limit: int = 30, db: Session = Depend
         "danger_river_level": loc.danger_river_level,
         "history": history_points
     }
+
+
+@router.get("/{location_id}/historical-events", response_model=List[HistoricalEventOut])
+def get_location_historical_events(location_id: int, db: Session = Depends(get_db)):
+    """Fetches documented historical disaster inventory records for a specific monitoring station."""
+    loc = db.query(Location).filter(Location.id == location_id).first()
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    events = db.query(HistoricalEvent).filter(
+        HistoricalEvent.location_id == location_id
+    ).order_by(HistoricalEvent.event_date.desc()).all()
+    return events

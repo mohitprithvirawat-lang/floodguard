@@ -54,6 +54,18 @@ export interface Alert {
   acknowledged: boolean;
 }
 
+export interface HistoricalEvent {
+  id: number;
+  location_id: number;
+  event_date: string;
+  event_type: 'flash_flood' | 'landslide' | 'cloudburst' | string;
+  trigger_rainfall_mm?: number | null;
+  river_level_at_peak?: number | null;
+  casualties?: number | null;
+  description: string;
+  source_citation: string;
+}
+
 export interface Location {
   id: number;
   name: string;
@@ -126,3 +138,109 @@ export interface LiveTelemetryPayload {
   locations: Location[];
   new_alerts: Alert[];
 }
+
+export interface SMSTemplate {
+  id: string;
+  name: string;
+  risk_level: string;
+  description: string;
+  template_en: string;
+  template_hi: string;
+}
+
+export interface SMSPreviewResponse {
+  location_id: number;
+  location_name: string;
+  risk_level: string;
+  language: string;
+  recipient_group: string;
+  message_text_en: string;
+  message_text_hi: string;
+  final_sms_text: string;
+  character_count: number;
+  sms_parts: number;
+  estimated_recipients: number;
+  safe_shelter: string;
+  helpline: string;
+}
+
+export interface SMSDispatch {
+  id: number;
+  location_id: number;
+  location_name?: string;
+  recipient_group: string;
+  phone_numbers_count: number;
+  sample_phone?: string;
+  language: string;
+  risk_level: string;
+  message_text: string;
+  status: string;
+  delivery_rate: number;
+  carrier_reference?: string;
+  created_at: string;
+}
+
+export interface ClassMetric {
+  precision: number;
+  recall: number;
+  f1_score: number;
+  support: number;
+}
+
+export interface ModelMetrics {
+  model_name: string;
+  total_samples: number;
+  train_samples_70: number;
+  test_samples_30: number;
+  train_split_percentage: number;
+  test_split_percentage: number;
+  accuracy_percentage: number;
+  macro_precision: number;
+  macro_recall: number;
+  macro_f1: number;
+  weighted_f1: number;
+  risk_score_r2: number;
+  risk_score_mae: number;
+  warning_window_mae_minutes: number;
+  class_metrics: Record<string, ClassMetric>;
+  confusion_matrix: {
+    labels: string[];
+    matrix: number[][];
+  };
+  feature_importances: Record<string, number>;
+  training_timestamp: string;
+}
+
+export interface DataSourceInfo {
+  source_id: string;
+  name: string;
+  agency: string;
+  telemetry_type: string;
+  update_frequency: string;
+  accuracy_resolution: string;
+  status: string;
+  latency_seconds: number;
+  description: string;
+}
+
+export interface FutureForecastStep {
+  step_hours: number;
+  projected_time: string;
+  projected_rainfall_1h: number;
+  projected_rainfall_3h: number;
+  projected_river_level: number;
+  projected_risk_score: number;
+  projected_risk_level: RiskLevel;
+  confidence_percentage: number;
+}
+
+export interface LocationForecast {
+  location_id: number;
+  location_name: string;
+  current_time: string;
+  current_risk_score: number;
+  current_risk_level: RiskLevel;
+  confidence_score: number;
+  forecast_steps: FutureForecastStep[];
+}
+

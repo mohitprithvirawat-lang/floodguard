@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from app.database import SessionLocal, engine, Base
-from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert
+from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert, HistoricalEvent
 from app.ml.model import flood_model
 from app.services.data_generator import generate_reading_for_location
 
@@ -202,6 +202,122 @@ HIMALAYAN_LOCATIONS = [
     }
 ]
 
+HISTORICAL_DISASTER_EVENTS = [
+    {
+        "location_name": "Kedarnath / Gaurikund Gorge",
+        "event_date": "2013-06-16",
+        "event_type": "flash_flood",
+        "trigger_rainfall_mm": 375.0,
+        "river_level_at_peak": 9.8,
+        "casualties": 5700,
+        "description": "Catastrophic breach of the moraine-dammed Chorabari Glacial Lake caused by torrential multi-day monsoon cloudbursts, surging down Mandakini River and completely demolishing Rambara settlement and Gaurikund base camp.",
+        "source_citation": "National Institute of Disaster Management (NIDM) Uttarakhand Disaster Report 2013 & IMD Special Bulletin"
+    },
+    {
+        "location_name": "Chamoli / Rishi Ganga Basin",
+        "event_date": "2021-02-07",
+        "event_type": "flash_flood",
+        "trigger_rainfall_mm": 15.0,
+        "river_level_at_peak": 8.9,
+        "casualties": 204,
+        "description": "Massive rock and hanging glacier detachment from Ronti Peak plunged into Raunthi Gad, unleashing a hyper-concentrated debris deluge down Rishi Ganga and Dhauliganga valleys, destroying the Rishi Ganga and Tapovan Vishnugad hydro projects.",
+        "source_citation": "Wadia Institute of Himalayan Geology (WIHG) & ISRO Disaster Management Support Services (DMSS) Report 2021"
+    },
+    {
+        "location_name": "Joshimath / Vishnuprayag",
+        "event_date": "2013-06-17",
+        "event_type": "flash_flood",
+        "trigger_rainfall_mm": 220.0,
+        "river_level_at_peak": 9.5,
+        "casualties": 45,
+        "description": "Heavy monsoon torrents inundated the Alaknanda and Dhauliganga confluence at Vishnuprayag, burying the barrage silt chambers, eroding foundational river terraces, and submerging riverside wards in Marwari.",
+        "source_citation": "Central Water Commission (CWC) Himalayan Basin Hydrological Survey 2013"
+    },
+    {
+        "location_name": "Kullu / Bhuntar Valley",
+        "event_date": "2023-07-09",
+        "event_type": "flash_flood",
+        "trigger_rainfall_mm": 246.0,
+        "river_level_at_peak": 10.4,
+        "casualties": 41,
+        "description": "Unprecedented 48-hour continuous monsoon cloudbursts in Beas and Parvati catchments triggered peak discharge exceeding 2,290 m³/s, severing NH-21 highway segments and washing away downstream riverside settlements and the Hathithan approach.",
+        "source_citation": "Himachal Pradesh State Disaster Management Authority (HPSDMA) Monsoon Flood Assessment 2023"
+    },
+    {
+        "location_name": "Manali / Solang Watershed",
+        "event_date": "2023-07-10",
+        "event_type": "cloudburst",
+        "trigger_rainfall_mm": 215.0,
+        "river_level_at_peak": 8.2,
+        "casualties": 12,
+        "description": "Localized cloudburst over upper Beas headwaters caused sudden boulder and silt torrents down Solang Nullah, inundating riverside establishments in Old Manali, washing away timber bridges, and flooding the Atal Tunnel bypass link.",
+        "source_citation": "State Emergency Operation Centre (SEOC) Himachal Pradesh Incident Report July 2023"
+    },
+    {
+        "location_name": "Dharamshala / Bhagsunag Falls",
+        "event_date": "2021-07-12",
+        "event_type": "flash_flood",
+        "trigger_rainfall_mm": 119.0,
+        "river_level_at_peak": 6.8,
+        "casualties": 4,
+        "description": "Sudden micro-cloudburst in the Dhauladhar foothills above Bhagsunag triggered flash flooding in Manjhi Khad, washing away parked vehicles down nullahs and damaging tourist hotels and access bridges in McLeod Ganj.",
+        "source_citation": "India Meteorological Department (IMD) Meteorological Centre Shimla Special Radar Advisory, July 2021"
+    },
+    {
+        "location_name": "Uttarkashi / Bhagirathi Valley",
+        "event_date": "2012-08-04",
+        "event_type": "cloudburst",
+        "trigger_rainfall_mm": 185.0,
+        "river_level_at_peak": 11.1,
+        "casualties": 35,
+        "description": "Devastating cloudburst in the Asi Ganga catchment generated massive flash floods carrying boulders and uprooted pine logs, demolishing the Joshiyara suspension bridge, washing away the Gangotri NH-34 roadway, and flooding Tiloth village.",
+        "source_citation": "Uttarakhand State Disaster Management Authority (USDMA) Asi Ganga Flood Investigation 2012"
+    },
+    {
+        "location_name": "Mandi / Pandoh Gorge",
+        "event_date": "2023-08-14",
+        "event_type": "landslide",
+        "trigger_rainfall_mm": 168.0,
+        "river_level_at_peak": 12.6,
+        "casualties": 19,
+        "description": "Torrential overnight downpours saturated the gorge slopes, causing catastrophic landslides and debris flows at Sambhal and Pandoh along the Beas River, blocking highway traffic and flooding lower dam colony habitations.",
+        "source_citation": "National Disaster Response Force (NDRF) 14th Battalion Mandi Search & Rescue Log, August 2023"
+    }
+]
+
+def seed_historical_events_if_needed(db):
+    """Populates historical disaster inventory records if they don't already exist."""
+    existing_events = db.query(HistoricalEvent).count()
+    if existing_events > 0:
+        logger.info(f"Database already contains {existing_events} historical disaster records. Skipping events seed.")
+        return
+
+    logger.info(f"Seeding {len(HISTORICAL_DISASTER_EVENTS)} real documented historical disaster inventory records...")
+    locations_by_name = {loc.name: loc for loc in db.query(Location).all()}
+
+    seeded_count = 0
+    for item in HISTORICAL_DISASTER_EVENTS:
+        loc = locations_by_name.get(item["location_name"])
+        if not loc:
+            logger.warning(f"Could not find station '{item['location_name']}' for historical event.")
+            continue
+
+        event = HistoricalEvent(
+            location_id=loc.id,
+            event_date=item["event_date"],
+            event_type=item["event_type"],
+            trigger_rainfall_mm=item.get("trigger_rainfall_mm"),
+            river_level_at_peak=item.get("river_level_at_peak"),
+            casualties=item.get("casualties"),
+            description=item["description"],
+            source_citation=item["source_citation"]
+        )
+        db.add(event)
+        seeded_count += 1
+
+    db.commit()
+    logger.info(f"Successfully seeded {seeded_count} historical disaster events.")
+
 def seed_database():
     """Initializes tables and seeds locations, infrastructure, historical telemetry & ML predictions."""
     logger.info("Creating database tables...")
@@ -212,7 +328,8 @@ def seed_database():
         # Check if already seeded
         existing_count = db.query(Location).count()
         if existing_count > 0:
-            logger.info(f"Database already contains {existing_count} locations. Skipping seed.")
+            logger.info(f"Database already contains {existing_count} locations.")
+            seed_historical_events_if_needed(db)
             return
 
         # Train ML model first
@@ -303,6 +420,9 @@ def seed_database():
                         created_at=timestamp
                     )
                     db.add(alert)
+
+        # Seed historical disaster events
+        seed_historical_events_if_needed(db)
 
         db.commit()
         logger.info("Database seeding completed successfully.")

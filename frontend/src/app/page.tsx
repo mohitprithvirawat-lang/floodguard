@@ -168,8 +168,22 @@ export default function OverviewPage() {
             </button>
 
             <Link
+              href="/sms"
+              className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/40 text-xs font-bold transition-all active:scale-95 flex items-center space-x-1.5"
+            >
+              <span>📱 SMS Broadcast</span>
+            </Link>
+
+            <Link
+              href="/model-accuracy"
+              className="px-3 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 border border-cyan-500/40 text-xs font-bold transition-all active:scale-95 flex items-center space-x-1.5"
+            >
+              <span>📊 70-30% Accuracy</span>
+            </Link>
+
+            <Link
               href="/simulate"
-              className="text-xs text-blue-400 hover:text-blue-300 font-semibold px-2 py-1 underline"
+              className="text-xs text-slate-400 hover:text-white font-semibold px-2 py-1 underline"
             >
               Full Simulator &rarr;
             </Link>

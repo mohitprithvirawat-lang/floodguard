@@ -7,9 +7,12 @@ import RiskGauge from '@/components/Charts/RiskGauge';
 import RainfallChart from '@/components/Charts/RainfallChart';
 import RiverLevelChart from '@/components/Charts/RiverLevelChart';
 import FeatureImportanceChart from '@/components/Charts/FeatureImportanceChart';
+import ForecastTrajectoryChart from '@/components/Charts/ForecastTrajectoryChart';
 import ImpactList from '@/components/ImpactList';
-import { fetchLocationDetails, fetchLocationHistory } from '@/lib/api';
-import { LocationDetail } from '@/lib/types';
+import HistoricalEventsPanel from '@/components/HistoricalEventsPanel';
+import SMSDispatchModal from '@/components/SMSDispatchModal';
+import { fetchLocationDetails, fetchLocationHistory, fetchHistoricalEvents } from '@/lib/api';
+import { LocationDetail, HistoricalEvent } from '@/lib/types';
 import {
   Waves,
   Mountain,
@@ -21,7 +24,10 @@ import {
   RefreshCw,
   Zap,
   ShieldAlert,
-  AlertTriangle
+  AlertTriangle,
+  Send,
+  Sparkles,
+  BarChart3
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRealtimeStream } from '@/lib/useWebSocket';
@@ -32,20 +38,24 @@ export default function LocationDetailPage() {
 
   const [location, setLocation] = useState<LocationDetail | null>(null);
   const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historicalEvents, setHistoricalEvents] = useState<HistoricalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'charts' | 'evacuation'>('overview');
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
 
   const { telemetry } = useRealtimeStream();
 
   const loadData = async () => {
     if (!locationId) return;
     try {
-      const [detailRes, histRes] = await Promise.all([
+      const [detailRes, histRes, eventsRes] = await Promise.all([
         fetchLocationDetails(locationId),
-        fetchLocationHistory(locationId, 24)
+        fetchLocationHistory(locationId, 24),
+        fetchHistoricalEvents(locationId).catch(() => [])
       ]);
       setLocation(detailRes);
       setHistoryData(histRes.history || []);
+      setHistoricalEvents(eventsRes || []);
     } catch (err) {
       console.error('Failed to load station detail:', err);
     } finally {
@@ -131,20 +141,42 @@ export default function LocationDetailPage() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center space-x-2.5">
+            <button
+              onClick={() => setSmsModalOpen(true)}
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md active:scale-95 ${
+                riskLevel === 'CRITICAL'
+                  ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-950/50'
+                  : riskLevel === 'WARNING'
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-950/50'
+                  : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/50'
+              }`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Dispatch Emergency SMS</span>
+            </button>
+
+            <Link
+              href="/model-accuracy"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Model Accuracy</span>
+            </Link>
+
             <button
               onClick={loadData}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh Telemetry</span>
+              <span>Refresh</span>
             </button>
             <Link
               href={`/simulate`}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/40 text-xs font-bold"
             >
               <Zap className="w-3.5 h-3.5" />
-              <span>Simulate Threat Level</span>
+              <span>Simulate</span>
             </Link>
           </div>
         </div>
@@ -232,7 +264,16 @@ export default function LocationDetailPage() {
           </div>
         </div>
 
-        {/* Section 2: Time-Series Hydrological Charts */}
+        {/* Section 2: Future Trajectory Forecasting (+1h, +2h, +3h, +6h) */}
+        <div>
+          <ForecastTrajectoryChart
+            locationId={location.id}
+            dangerLevel={location.danger_river_level}
+            riverName={location.river_name}
+          />
+        </div>
+
+        {/* Section 3: Time-Series Hydrological Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="flex flex-col min-h-[320px]">
             <RainfallChart data={historyData} />
@@ -246,13 +287,29 @@ export default function LocationDetailPage() {
           </div>
         </div>
 
-        {/* Section 3: Vulnerable Infrastructure & Evacuation Priority Order */}
+        {/* Section 4: Vulnerable Infrastructure & Evacuation Priority Order */}
         <div>
           <ImpactList
             infrastructure={location.infrastructure}
             riskLevel={riskLevel}
           />
         </div>
+
+        {/* Section 5: Past Incidents Nearby (Historical Disaster Inventory) */}
+        <div>
+          <HistoricalEventsPanel
+            events={historicalEvents}
+            stationName={location.name}
+          />
+        </div>
+
+        {/* Emergency SMS Broadcast Modal */}
+        <SMSDispatchModal
+          initialLocationId={location.id}
+          initialRiskLevel={riskLevel}
+          isOpen={smsModalOpen}
+          onClose={() => setSmsModalOpen(false)}
+        />
       </div>
     </div>
   );

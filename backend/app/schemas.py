@@ -108,3 +108,125 @@ class SimulationStatusOut(BaseModel):
     warning_zones: int
     watch_zones: int
     normal_zones: int
+
+# SMS Schemas
+class SMSPreviewRequest(BaseModel):
+    location_id: int
+    language: str = "BILINGUAL"  # EN, HI, BILINGUAL
+    recipient_group: str = "ALL"  # RESIDENTS, PRADHANS, RESCUE_TEAMS, DISTRICT_ADMIN, ALL
+    custom_instruction: Optional[str] = None
+    safe_zone: Optional[str] = None
+
+class SMSPreviewResponse(BaseModel):
+    location_id: int
+    location_name: str
+    risk_level: str
+    language: str
+    recipient_group: str
+    message_text_en: str
+    message_text_hi: str
+    final_sms_text: str
+    character_count: int
+    sms_parts: int
+    estimated_recipients: int
+    safe_shelter: str
+    helpline: str
+
+class SMSDispatchRequest(BaseModel):
+    location_id: int
+    recipient_group: str = "ALL"  # RESIDENTS, PRADHANS, RESCUE_TEAMS, DISTRICT_ADMIN, ALL
+    language: str = "BILINGUAL"
+    message_text: str
+    sample_phone: Optional[str] = "+91 98765 43210"
+
+class SMSDispatchOut(BaseModel):
+    id: int
+    location_id: int
+    location_name: Optional[str] = None
+    recipient_group: str
+    phone_numbers_count: int
+    sample_phone: Optional[str] = None
+    language: str
+    risk_level: str
+    message_text: str
+    status: str
+    delivery_rate: float
+    carrier_reference: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# ML Metrics & 70-30 Split Schemas
+class ClassMetric(BaseModel):
+    precision: float
+    recall: float
+    f1_score: float
+    support: int
+
+class ModelMetricsOut(BaseModel):
+    model_name: str
+    total_samples: int
+    train_samples_70: int
+    test_samples_30: int
+    train_split_percentage: float
+    test_split_percentage: float
+    accuracy_percentage: float
+    macro_precision: float
+    macro_recall: float
+    macro_f1: float
+    weighted_f1: float
+    risk_score_r2: float
+    risk_score_mae: float
+    warning_window_mae_minutes: float
+    class_metrics: Dict[str, ClassMetric]
+    confusion_matrix: Dict[str, Any]
+    feature_importances: Dict[str, float]
+    training_timestamp: str
+
+class DataSourceInfo(BaseModel):
+    source_id: str
+    name: str
+    agency: str
+    telemetry_type: str
+    update_frequency: str
+    accuracy_resolution: str
+    status: str
+    latency_seconds: int
+    description: str
+
+class FutureForecastStep(BaseModel):
+    step_hours: int
+    projected_time: str
+    projected_rainfall_1h: float
+    projected_rainfall_3h: float
+    projected_river_level: float
+    projected_risk_score: float
+    projected_risk_level: str
+    confidence_percentage: float
+
+class LocationForecastOut(BaseModel):
+    location_id: int
+    location_name: str
+    current_time: str
+    current_risk_score: float
+    current_risk_level: str
+    confidence_score: float
+    forecast_steps: List[FutureForecastStep]
+
+
+# Historical Disaster Inventory Schemas
+class HistoricalEventOut(BaseModel):
+    id: int
+    location_id: int
+    event_date: str
+    event_type: str  # flash_flood, landslide, cloudburst
+    trigger_rainfall_mm: Optional[float] = None
+    river_level_at_peak: Optional[float] = None
+    casualties: Optional[int] = None
+    description: str
+    source_citation: str
+
+    class Config:
+        from_attributes = True
+

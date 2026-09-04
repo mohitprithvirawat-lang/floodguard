@@ -13,7 +13,11 @@ import {
   Activity,
   Radio,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare,
+  BarChart3,
+  Cpu,
+  Send
 } from 'lucide-react';
 import { fetchLocations } from '@/lib/api';
 import { Location } from '@/lib/types';
@@ -32,6 +36,8 @@ export default function Sidebar() {
   const navItems = [
     { label: 'Overview Dashboard', href: '/', icon: LayoutDashboard },
     { label: 'Alert History & Log', href: '/alerts', icon: Bell },
+    { label: 'SMS Emergency Dispatch', href: '/sms', icon: Send },
+    { label: 'AI Model & Accuracy', href: '/model-accuracy', icon: BarChart3 },
     { label: 'Simulation Control', href: '/simulate', icon: PlayCircle },
   ];
 

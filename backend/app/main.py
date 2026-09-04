@@ -7,7 +7,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.seed import seed_database
 from app.services.simulation import run_simulation_tick, sim_state
-from app.routers import locations, risk, impact, alerts, simulate, websocket
+from app.routers import locations, risk, impact, alerts, simulate, websocket, sms, ml_analytics
 from app.routers.websocket import ws_manager
 
 logging.basicConfig(
@@ -78,6 +78,8 @@ app.include_router(impact.router)
 app.include_router(alerts.router)
 app.include_router(simulate.router)
 app.include_router(websocket.router)
+app.include_router(sms.router)
+app.include_router(ml_analytics.router)
 
 @app.get("/api/health")
 def health_check():
