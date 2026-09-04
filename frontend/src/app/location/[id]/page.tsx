@@ -10,6 +10,7 @@ import FeatureImportanceChart from '@/components/Charts/FeatureImportanceChart';
 import ForecastTrajectoryChart from '@/components/Charts/ForecastTrajectoryChart';
 import ImpactList from '@/components/ImpactList';
 import HistoricalEventsPanel from '@/components/HistoricalEventsPanel';
+import SensorHealthWidget from '@/components/SensorHealthWidget';
 import SMSDispatchModal from '@/components/SMSDispatchModal';
 import { fetchLocationDetails, fetchLocationHistory, fetchHistoricalEvents } from '@/lib/api';
 import { LocationDetail, HistoricalEvent } from '@/lib/types';
@@ -78,7 +79,12 @@ export default function LocationDetailPage() {
             ...prev,
             current_reading: updated.current_reading,
             latest_prediction: updated.latest_prediction,
-            scenario: updated.scenario
+            scenario: updated.scenario,
+            device: (updated as any).device ? {
+              ...(prev.device || {}),
+              ...(updated as any).device,
+              last_seen_at: new Date().toISOString()
+            } : prev.device
           };
         });
       }
@@ -249,6 +255,12 @@ export default function LocationDetailPage() {
             <span className="text-[10px] text-slate-400">Fcst: {currentReading?.forecast_rainfall_next_3h} mm</span>
           </div>
         </div>
+
+        {/* Real-time Field IoT Sensor Node Health */}
+        <SensorHealthWidget
+          device={location.device}
+          stationName={location.name}
+        />
 
         {/* Section 1: AI Risk Gauge & Explainable Factor Decomposition */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

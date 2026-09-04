@@ -25,6 +25,7 @@ class Location(Base):
     alerts = relationship("Alert", back_populates="location", cascade="all, delete-orphan", order_by="desc(Alert.created_at)")
     sms_dispatches = relationship("SMSDispatch", back_populates="location", cascade="all, delete-orphan", order_by="desc(SMSDispatch.created_at)")
     historical_events = relationship("HistoricalEvent", back_populates="location", cascade="all, delete-orphan", order_by="desc(HistoricalEvent.event_date)")
+    devices = relationship("SensorDevice", back_populates="location", cascade="all, delete-orphan")
 
 
 class SensorReading(Base):
@@ -124,4 +125,22 @@ class HistoricalEvent(Base):
     source_citation = Column(Text, nullable=False)  # Government/academic source citation
 
     location = relationship("Location", back_populates="historical_events")
+
+
+class SensorDevice(Base):
+    __tablename__ = "sensor_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String(100), unique=True, nullable=False, index=True)
+    location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
+    api_key = Column(String(100), nullable=False, index=True)
+    name = Column(String(150), nullable=False)
+    device_type = Column(String(50), default="TELEMETRY_COMBO")
+    last_seen_at = Column(DateTime, default=datetime.utcnow, index=True)
+    battery_pct = Column(Float, default=95.0)
+    firmware_version = Column(String(30), default="v2.4.1-rc")
+    status = Column(String(20), default="ONLINE")  # ONLINE, STALE, FAULT
+    transmission_interval_sec = Column(Integer, default=5)
+
+    location = relationship("Location", back_populates="devices")
 

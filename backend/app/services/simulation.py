@@ -3,10 +3,10 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
-from app.models import Location, SensorReading, RiskPrediction
-from app.ml.model import flood_model
+from app.models import Location
+from app.schemas import IoTIngestPayload
+from app.routers.iot import ingest_sensor_payload, MASTER_API_KEY
 from app.services.data_generator import generate_reading_for_location
-from app.services.alert_service import check_and_create_alert
 
 logger = logging.getLogger("floodguard.simulation")
 
@@ -19,12 +19,10 @@ sim_state = SimulationState()
 
 def run_simulation_tick(db: Session) -> Dict[str, Any]:
     """
-    Executes a single discrete simulation step across all stations:
-    1. Steps sensors based on scenario
-    2. Runs AI ML risk inference
-    3. Persists readings & risk predictions
-    4. Triggers alerts on escalation
-    5. Returns unified real-time telemetry payload
+    Executes a single discrete simulation step across all stations.
+    Crucially routes all telemetry data through the real IoT ingestion pipeline
+    (ingest_sensor_payload) with sensor validation, hardware heartbeat tracking,
+    and physics-guided ML inference.
     """
     sim_state.tick_count += 1
     locations = db.query(Location).all()
@@ -37,61 +35,39 @@ def run_simulation_tick(db: Session) -> Dict[str, Any]:
         # Increment scenario step counter
         loc.scenario_step = (loc.scenario_step or 0) + 1
 
-        # Generate sensor values
+        # Generate simulated raw field sensor telemetry
         reading_dict = generate_reading_for_location(loc, timestamp=now)
 
-        # Create reading record
-        reading = SensorReading(**reading_dict)
-        db.add(reading)
-        db.flush()
-
-        # Combine reading with static terrain features for ML inference
-        features = {
-            "rainfall_1h": reading.rainfall_1h,
-            "rainfall_3h": reading.rainfall_3h,
-            "rainfall_6h": reading.rainfall_6h,
-            "rainfall_24h": reading.rainfall_24h,
-            "temperature": reading.temperature,
-            "humidity": reading.humidity,
-            "river_level": reading.river_level,
-            "river_level_change_rate": reading.river_level_change_rate,
-            "soil_moisture": reading.soil_moisture,
-            "slope": loc.slope,
-            "elevation": loc.elevation,
-            "distance_from_river": reading.distance_from_river,
-            "forecast_rainfall_next_3h": reading.forecast_rainfall_next_3h
-        }
-
-        # Run AI prediction
-        pred_result = flood_model.predict_risk(features)
-
-        # Get previous prediction to detect state change
-        prev_pred = db.query(RiskPrediction).filter(
-            RiskPrediction.location_id == loc.id
-        ).order_by(RiskPrediction.timestamp.desc()).first()
-
-        old_level = prev_pred.risk_level if prev_pred else None
-
-        # Save new prediction
-        prediction = RiskPrediction(
+        # Convert into IoT Ingestion Payload
+        payload = IoTIngestPayload(
             location_id=loc.id,
             timestamp=now,
-            risk_score=pred_result["risk_score"],
-            risk_level=pred_result["risk_level"],
-            warning_window_minutes=pred_result["warning_window_minutes"],
-            contributions_json=json.dumps(pred_result["feature_contributions"])
+            rainfall_1h=reading_dict["rainfall_1h"],
+            rainfall_3h=reading_dict["rainfall_3h"],
+            rainfall_6h=reading_dict["rainfall_6h"],
+            rainfall_24h=reading_dict["rainfall_24h"],
+            temperature=reading_dict["temperature"],
+            humidity=reading_dict["humidity"],
+            river_level=reading_dict["river_level"],
+            river_level_change_rate=reading_dict["river_level_change_rate"],
+            soil_moisture=reading_dict["soil_moisture"],
+            distance_from_river=reading_dict.get("distance_from_river", 50.0),
+            forecast_rainfall_next_3h=reading_dict.get("forecast_rainfall_next_3h", 0.0),
+            battery_pct=round(max(40.0, 96.0 - ((loc.id * 3.7 + sim_state.tick_count * 0.02) % 35.0)), 1)
         )
-        db.add(prediction)
-        db.flush()
 
-        # Check for alert trigger
-        alert = check_and_create_alert(
+        # Ingest through the real IoT ingestion pipeline
+        receipt = ingest_sensor_payload(
             db=db,
-            location=loc,
-            old_level=old_level,
-            new_level=pred_result["risk_level"],
-            risk_score=pred_result["risk_score"]
+            payload=payload,
+            header_api_key=MASTER_API_KEY
         )
+
+        reading = receipt["reading"]
+        prediction = receipt["prediction"]
+        pred_result = receipt["pred_result"]
+        alert = receipt.get("alert")
+
         if alert:
             new_alerts.append({
                 "id": alert.id,
@@ -145,6 +121,11 @@ def run_simulation_tick(db: Session) -> Dict[str, Any]:
                 "hydrological_risk": pred_result.get("hydrological_risk"),
                 "geotechnical_risk": pred_result.get("geotechnical_risk"),
                 "hybrid_risk": pred_result.get("hybrid_risk")
+            },
+            "device": {
+                "device_id": receipt["device_id"],
+                "battery_pct": receipt["battery_pct"],
+                "status": receipt["device_status"]
             }
         })
 

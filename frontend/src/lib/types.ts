@@ -124,10 +124,24 @@ export interface Location {
   latest_prediction?: RiskPrediction | null;
 }
 
+export interface SensorDevice {
+  id: number;
+  device_id: string;
+  location_id: number;
+  name: string;
+  device_type: string;
+  last_seen_at?: string | null;
+  battery_pct?: number | null;
+  firmware_version?: string | null;
+  status: 'ONLINE' | 'STALE' | 'FAULT' | 'FLAGGED' | string;
+  transmission_interval_sec?: number | null;
+}
+
 export interface LocationDetail extends Location {
   infrastructure: Infrastructure[];
   readings_history: SensorReading[];
   recent_alerts: Alert[];
+  device?: SensorDevice | null;
   hydrological_risk?: HydrologicalRisk;
   geotechnical_risk?: GeotechnicalRisk;
   hybrid_risk?: HybridRisk;

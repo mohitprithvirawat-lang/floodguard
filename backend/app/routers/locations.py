@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert, HistoricalEvent
+from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert, HistoricalEvent, SensorDevice
 from app.schemas import LocationOut, LocationDetailOut, SensorReadingOut, RiskPredictionOut, HistoricalEventOut
 from app.services.impact_service import assess_infrastructure_impact
 from app.ml.slope_stability import calculate_slope_stability, combine_hydrological_and_geotechnical
@@ -142,6 +142,9 @@ def get_location_details(location_id: int, db: Session = Depends(get_db)):
         "acknowledged": a.acknowledged
     } for a in alerts]
 
+    # Fetch device associated with location
+    device = db.query(SensorDevice).filter(SensorDevice.location_id == loc.id).first()
+
     return {
         "id": loc.id,
         "name": loc.name,
@@ -159,6 +162,7 @@ def get_location_details(location_id: int, db: Session = Depends(get_db)):
         "infrastructure": assessed_infra,
         "readings_history": readings,
         "recent_alerts": alerts_out,
+        "device": device,
         "geotechnical_risk": hybrid["geotechnical_risk"] if hybrid else geotech,
         "hydrological_risk": hybrid["hydrological_risk"] if hybrid else None,
         "hybrid_risk": hybrid["hybrid_risk"] if hybrid else None

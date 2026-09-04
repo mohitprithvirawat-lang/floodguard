@@ -122,6 +122,7 @@ class LocationDetailOut(LocationOut):
     geotechnical_risk: Optional[GeotechnicalRiskOut] = None
     hydrological_risk: Optional[HydrologicalRiskOut] = None
     hybrid_risk: Optional[HybridRiskOut] = None
+    device: Optional["SensorDeviceOut"] = None
 
 class ScenarioUpdateRequest(BaseModel):
     scenario: str = Field(..., description="NORMAL, BUILDING_STORM, FLASH_FLOOD_IMMINENT")
@@ -257,4 +258,55 @@ class HistoricalEventOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# IoT Sensor Device & Ingestion Schemas
+class SensorDeviceOut(BaseModel):
+    id: int
+    device_id: str
+    location_id: int
+    name: str
+    device_type: str
+    last_seen_at: datetime
+    battery_pct: float
+    firmware_version: str
+    status: str  # ONLINE, STALE, FAULT
+    transmission_interval_sec: int
+
+    class Config:
+        from_attributes = True
+
+
+class IoTIngestPayload(BaseModel):
+    api_key: Optional[str] = None
+    device_id: Optional[str] = None
+    location_id: Optional[int] = None
+    timestamp: Optional[datetime] = None
+    rainfall_1h: float = Field(..., ge=0.0, le=250.0, description="1-hour rainfall in mm (0-250)")
+    rainfall_3h: float = Field(..., ge=0.0, le=500.0, description="3-hour rainfall in mm (0-500)")
+    rainfall_6h: float = Field(..., ge=0.0, le=800.0, description="6-hour rainfall in mm (0-800)")
+    rainfall_24h: float = Field(..., ge=0.0, le=1200.0, description="24-hour rainfall in mm (0-1200)")
+    temperature: float = Field(..., ge=-30.0, le=55.0, description="Ambient temperature in °C (-30 to 55)")
+    humidity: float = Field(..., ge=0.0, le=100.0, description="Relative humidity in % (0-100)")
+    river_level: float = Field(..., ge=0.0, le=30.0, description="River level in meters (0-30)")
+    river_level_change_rate: float = Field(..., ge=-5.0, le=12.0, description="Surge rate in m/h (-5 to 12)")
+    soil_moisture: float = Field(..., ge=0.0, le=100.0, description="Soil moisture in % (0-100)")
+    distance_from_river: Optional[float] = 50.0
+    forecast_rainfall_next_3h: Optional[float] = 0.0
+    battery_pct: Optional[float] = Field(None, ge=0.0, le=100.0)
+
+
+class IoTIngestResponse(BaseModel):
+    status: str  # SUCCESS, FLAGGED
+    message: str
+    reading_id: int
+    device_id: str
+    location_id: int
+    location_name: str
+    timestamp: datetime
+    battery_pct: float
+    device_status: str
+    risk_score: float
+    risk_level: str
+    validation_flags: List[str] = []
 

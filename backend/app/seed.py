@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from app.database import SessionLocal, engine, Base
-from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert, HistoricalEvent
+from app.models import Location, SensorReading, RiskPrediction, Infrastructure, Alert, HistoricalEvent, SensorDevice
 from app.ml.model import flood_model
 from app.services.data_generator import generate_reading_for_location
 
@@ -318,6 +318,36 @@ def seed_historical_events_if_needed(db):
     db.commit()
     logger.info(f"Successfully seeded {seeded_count} historical disaster events.")
 
+def seed_sensor_devices_if_needed(db):
+    """Populates IoT SensorDevice records for each location if not present."""
+    existing_devices = db.query(SensorDevice).count()
+    if existing_devices > 0:
+        logger.info(f"Database already contains {existing_devices} IoT sensor devices. Skipping devices seed.")
+        return
+
+    logger.info("Seeding IoT sensor devices for monitoring stations...")
+    locations = db.query(Location).all()
+    seeded_count = 0
+
+    for loc in locations:
+        device = SensorDevice(
+            device_id=f"HIM-HYDRO-{loc.id:02d}",
+            location_id=loc.id,
+            api_key=f"fg_live_{loc.id:02d}_key",
+            name=f"Telemetry Node - {loc.name}",
+            device_type="Hydro-Met Telemetry Node (Cellular / LoRaWAN)",
+            last_seen_at=datetime.utcnow(),
+            battery_pct=round(96.0 - ((loc.id * 3.7) % 28.0), 1),  # 68% to 96%
+            firmware_version="v2.4.2-prod",
+            status="ONLINE",
+            transmission_interval_sec=15
+        )
+        db.add(device)
+        seeded_count += 1
+
+    db.commit()
+    logger.info(f"Successfully seeded {seeded_count} IoT sensor devices.")
+
 def seed_database():
     """Initializes tables and seeds locations, infrastructure, historical telemetry & ML predictions."""
     logger.info("Creating database tables...")
@@ -330,6 +360,7 @@ def seed_database():
         if existing_count > 0:
             logger.info(f"Database already contains {existing_count} locations.")
             seed_historical_events_if_needed(db)
+            seed_sensor_devices_if_needed(db)
             return
 
         # Train ML model first
@@ -423,6 +454,7 @@ def seed_database():
 
         # Seed historical disaster events
         seed_historical_events_if_needed(db)
+        seed_sensor_devices_if_needed(db)
 
         db.commit()
         logger.info("Database seeding completed successfully.")
